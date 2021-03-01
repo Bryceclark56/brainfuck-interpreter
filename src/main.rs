@@ -1,4 +1,14 @@
 fn main() {
     let crate_version: &'static str = env!("CARGO_PKG_VERSION");
-    print!("Brainfuck Interpreter v{}", crate_version);
+    println!("Brainfuck Interpreter v{}", crate_version);
+
+    // Take input
+
+    // Validate input
+
+    // Execute input as brainfuck commands
+
+    // Display any output
+
+    // Exit
 }
