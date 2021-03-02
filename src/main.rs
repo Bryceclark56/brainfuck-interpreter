@@ -1,4 +1,4 @@
-use std::{char, io::{Write, stdin, stdout}, process::exit};
+use std::{char, cmp::Ordering, io::{Write, stdout}, process::exit};
 
 fn main() {
     let crate_version: &'static str = env!("CARGO_PKG_VERSION");
@@ -11,36 +11,34 @@ fn main() {
     let mut buffer = String::new();
     let _ = stdin.read_line(&mut buffer).unwrap();
 
-    // Remove trailing newline
-    if buffer.ends_with('\n') {
-        buffer.pop();
-    }
-    else if buffer.ends_with("\r\n") {
-        buffer.pop();
-        buffer.pop();
-    }
+    let buffer = buffer.trim(); // Remove trailing newline and any whitespaces
 
     println!("Input: {}", &buffer); // Debugging purposes
 
-    // Validate input
-        // Check for valid characters
-    const VALID_CHARS: [char; 8] = ['>', '<', '+', '-', '.', ',', '[', ']'];
-    let char_check = buffer.into_bytes().iter()
-        .map(|c| *c as char)
-        .try_for_each(|c| {
-            if !VALID_CHARS.contains(&c) {
-                Err(format!("{} is not a valid Brainfuck command", c))
-            }
-            else {
-                Ok(())
-            }
-        });
+    //Validate input
+    // Check for valid characters
+    const VALID_CHARS: &[char; 8] = &['>', '<', '+', '-', '.', ',', '[', ']'];
 
-    if char_check.is_err() {
-        eprintln!("{}", char_check.err().unwrap());
-        exit(1);
+    for c in buffer.chars() {
+        if VALID_CHARS.iter().any(|vc| char::cmp(&c, vc) == Ordering::Equal) {
+            eprintln!(" '{}' is not a valid Brainfuck command", &c);
+            exit(1); //TODO: Don't exit, just re-prompt
+        }
     }
-        // Check for valid structure (Every [ has a ])
+
+    // Check for valid structure (Every '[' has a ']' )
+    let mut loop_stack = buffer.chars()
+        .filter(|c| ['[', ']'].contains(&c))
+        .collect::<Vec<char>>();
+
+    if !loop_stack.is_empty() {
+        if loop_stack.pop().unwrap() == '[' {
+            eprintln!("Missing closing loop bracket");
+        }
+        else {
+            eprintln!("Missing opening loop bracket");
+        }
+    }
 
     // Execute input as brainfuck commands
 
