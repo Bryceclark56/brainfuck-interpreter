@@ -1,4 +1,4 @@
-use std::{char, convert::{TryFrom, TryInto}, error::Error, fmt::{self, write}, io::{Write, stdout}, process::exit};
+use std::{char, fmt, io::{Write, stdout}};
 
 fn main() {
     let crate_version: &'static str = env!("CARGO_PKG_VERSION");
@@ -15,13 +15,87 @@ fn main() {
 
     println!("Input: {}", &buffer); // Debugging purposes
 
-    let commands = Command::parse_string(buffer);
+    let _commands = Command::parse_string(buffer);
 
     // Execute input as brainfuck commands
+
 
     // Display any output
 
     // Exit
+}
+
+struct Machine {
+    data: Vec<u8>,
+    pointer: usize,
+
+    command_pointer: usize,
+    commands: Vec<Command>,
+
+    in_loop: bool,
+    loop_start: usize,
+}
+
+impl Machine {
+    // Ensures that all of the values up to the data pointer exist
+    fn fill_to_pointer(&mut self) {
+        if self.data.len() <= self.pointer  {
+            let goal = self.pointer;
+            let current = self.data.len();
+            for _ in current..=goal {
+                self.data.push(0);
+            }
+        }
+    }
+
+    /* Executes the command at commands[command_pointer]
+
+    Execute is lazy with data initialization.
+    Data is only initialized if it's modified or read from a new position */
+    fn execute_command(&mut self) {
+        match self.commands[self.command_pointer] {
+            Command::IncrementPointer => self.pointer = self.pointer + 1,
+            Command::DecrementPointer => self.pointer = self.pointer - 1,
+
+            Command::Increment => {
+                self.fill_to_pointer();
+                self.data[self.pointer] = self.data[self.pointer] + 1;
+            },
+            Command::Decrement => {
+                self.fill_to_pointer();
+                self.data[self.pointer] = self.data[self.pointer] + 1;
+            },
+
+            Command::Output => print!("{}", self.output() as char),
+            Command::Input => todo!(),
+
+            Command::LoopStart => self.loop_start = self.command_pointer,
+            Command::LoopEnd => {
+                if self.data[self.pointer] != 0 {
+                    self.command_pointer = self.loop_start;
+                }
+            },
+        }
+    }
+
+    // This should NEVER panic
+    fn output(&self) -> u8 {
+        self.data[self.pointer]
+    }
+}
+
+impl Default for Machine {
+    fn default() -> Self {
+        Machine {
+            data: Vec::new(),
+            pointer: 0,
+
+            command_pointer: 0,
+            commands: Vec::new(),
+            in_loop: false,
+            loop_start: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -42,9 +116,27 @@ enum Command {
 impl Command {
     fn parse_string(s: &str) -> Result<Vec<Command>, BrainfuckError> {
         // Convert the characters into commands
-        let commands = s.chars()
-        .map(|c| Command::try_from(&c))
-        .collect::<Result<Vec<Command>, BrainfuckError>>()?;
+        let commands: Vec<Command> = s.chars()
+        .map(|c| {
+            match c {
+                '>' => Some(Command::IncrementPointer),
+                '<' => Some(Command::DecrementPointer),
+
+                '+' => Some(Command::Increment),
+                '-' => Some(Command::Decrement),
+
+                '.' => Some(Command::Output),
+                ',' => Some(Command::Input),
+
+                '[' => Some(Command::LoopStart),
+                ']' => Some(Command::LoopEnd),
+
+                _ => None
+            }
+        })
+        .filter(|cmd| cmd.is_some())
+        .map(|cmd| cmd.unwrap())
+        .collect();
 
         // Check for matching square brackets
         let mut stack: Vec<Command> = Vec::new();
@@ -52,11 +144,12 @@ impl Command {
             match cmd {
                 Command::LoopStart => stack.push(*cmd),
                 Command::LoopEnd => {
-                    if *stack.last().unwrap_or_else(|| &&Command::Input) == Command::LoopStart {
+                    if stack.last() == Some(&Command::LoopStart) {
                         stack.pop();
                     }
-
-                    stack.push(*cmd);
+                    else {
+                        stack.push(*cmd);
+                    }
                 },
                 _ => {}
             }
@@ -76,38 +169,32 @@ impl Command {
     }
 }
 
-impl TryFrom<&char> for Command {
-    type Error = BrainfuckError;
-
-    fn try_from(c: &char) -> Result<Self, Self::Error> {
-        match c {
-            '>' => Ok(Command::IncrementPointer),
-            '<' => Ok(Command::DecrementPointer),
-    
-            '+' => Ok(Command::Increment),
-            '-' => Ok(Command::Decrement),
-    
-            '.' => Ok(Command::Output),
-            ',' => Ok(Command::Input),
-    
-            '[' => Ok(Command::LoopStart),
-            ']' => Ok(Command::LoopEnd),
-
-            _ => Err(BrainfuckError::InvalidCommandError(c.clone()))
-        }
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
+#[derive(Copy, Clone)]
 enum BrainfuckError {
-    InvalidCommandError(char),
-    MissingBracketError(bool)
+    //InvalidCommandError(char),
+    MissingBracketError(bool),
 }
 
 impl fmt::Display for BrainfuckError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BrainfuckError::InvalidCommandError(cmd) => write!(f, "Invalid command: {}", cmd),
+            //BrainfuckError::InvalidCommandError(cmd) => write!(f, "Invalid command: {}", cmd),
+            BrainfuckError::MissingBracketError(is_closing_bracket) => {
+                if *is_closing_bracket {
+                    write!(f, "Missing closing bracket")
+                }
+                else {
+                    write!(f, "Missing opening bracket")
+                }
+            }
+        }
+    }
+}
+
+impl fmt::Debug for BrainfuckError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            //BrainfuckError::InvalidCommandError(cmd) => write!(f, "Invalid command: {}", cmd),
             BrainfuckError::MissingBracketError(is_closing_bracket) => {
                 if *is_closing_bracket {
                     write!(f, "Missing closing bracket")
@@ -121,3 +208,46 @@ impl fmt::Display for BrainfuckError {
 }
 
 impl std::error::Error for BrainfuckError {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_valid_string() -> Result<(), BrainfuckError> {
+        let input_string = ">>>++++[>>+<<-]>>.";
+        let expected = vec![
+            Command::IncrementPointer,
+            Command::IncrementPointer,
+            Command::IncrementPointer,
+
+            Command::Increment,
+            Command::Increment,
+            Command::Increment,
+            Command::Increment,
+
+            Command::LoopStart,
+                Command::IncrementPointer,
+                Command::IncrementPointer,
+
+                Command::Increment,
+
+                Command::DecrementPointer,
+                Command::DecrementPointer,
+
+                Command::Decrement,
+            Command::LoopEnd,
+
+            Command::IncrementPointer,
+            Command::IncrementPointer,
+
+            Command::Output
+        ];
+
+        let result = Command::parse_string(input_string)?;
+
+        assert_eq!(result, expected);
+
+        Ok(())
+    }
+}
