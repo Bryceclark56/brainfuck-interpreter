@@ -115,27 +115,27 @@ enum Command {
 
 impl Command {
     fn parse_string(s: &str) -> Result<Vec<Command>, BrainfuckError> {
+        let valid_chars = ['>', '<', '+', '-', '.', ',', '[', ']'];
         // Convert the characters into commands
         let commands: Vec<Command> = s.chars()
+        .filter(|c| valid_chars.contains(c))
         .map(|c| {
             match c {
-                '>' => Some(Command::IncrementPointer),
-                '<' => Some(Command::DecrementPointer),
+                '>' => Command::IncrementPointer,
+                '<' => Command::DecrementPointer,
 
-                '+' => Some(Command::Increment),
-                '-' => Some(Command::Decrement),
+                '+' => Command::Increment,
+                '-' => Command::Decrement,
 
-                '.' => Some(Command::Output),
-                ',' => Some(Command::Input),
+                '.' => Command::Output,
+                ',' => Command::Input,
 
-                '[' => Some(Command::LoopStart),
-                ']' => Some(Command::LoopEnd),
+                '[' => Command::LoopStart,
+                ']' => Command::LoopEnd,
 
-                _ => None
+                _ => Command::Output // Dummy value. This case should never be matched.
             }
         })
-        .filter(|cmd| cmd.is_some())
-        .map(|cmd| cmd.unwrap())
         .collect();
 
         // Check for matching square brackets
@@ -160,7 +160,7 @@ impl Command {
             let last_bracket = stack.last().unwrap_or_else(|| &&Command::Input);
 
             return Err(BrainfuckError::MissingBracketError(
-                *last_bracket == Command::LoopEnd
+                *last_bracket == Command::LoopStart
             ));
         }
 
@@ -169,10 +169,10 @@ impl Command {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 enum BrainfuckError {
     //InvalidCommandError(char),
-    MissingBracketError(bool),
+    MissingBracketError(bool), // True if missing closing bracket, false if missing opening bracket
 }
 
 impl fmt::Display for BrainfuckError {
@@ -215,7 +215,7 @@ mod tests {
 
     #[test]
     fn parse_valid_string() -> Result<(), BrainfuckError> {
-        let input_string = ">>>++++[>>+<<-]>>.";
+        let input_string = ">>> ++++[ >>+ <<- ] >>.";
         let expected = vec![
             Command::IncrementPointer,
             Command::IncrementPointer,
@@ -249,5 +249,28 @@ mod tests {
         assert_eq!(result, expected);
 
         Ok(())
+    }
+
+    #[test]
+    fn parse_string_with_mismatching_brackets() {
+        let input_string = ">>>++++>>+<<-]>>.";
+
+        let result = Command::parse_string(input_string).unwrap_err();
+
+        assert_eq!(result, BrainfuckError::MissingBracketError(false));
+
+
+        let input_string = ">>>++++[>>+<<->>.";
+
+        let result = Command::parse_string(input_string).unwrap_err();
+
+        assert_eq!(result, BrainfuckError::MissingBracketError(true));
+
+
+        let input_string = ">>>++++[>>+<<-]>>[-]+[[[-]]";
+
+        let result = Command::parse_string(input_string).unwrap_err();
+
+        assert_eq!(result, BrainfuckError::MissingBracketError(true));
     }
 }
