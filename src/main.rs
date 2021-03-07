@@ -267,10 +267,18 @@ mod tests {
         assert_eq!(result, BrainfuckError::MissingBracketError(true));
 
 
+
         let input_string = ">>>++++[>>+<<-]>>[-]+[[[-]]";
 
         let result = Command::parse_string(input_string).unwrap_err();
 
         assert_eq!(result, BrainfuckError::MissingBracketError(true));
+
+
+        let input_string = ">>>++++[>>+<<-]>>[-]+[[-]]]";
+
+        let result = Command::parse_string(input_string).unwrap_err();
+
+        assert_eq!(result, BrainfuckError::MissingBracketError(false));
     }
 }
