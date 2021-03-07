@@ -252,7 +252,8 @@ mod tests {
     }
 
     #[test]
-    fn parse_string_with_mismatching_brackets() {
+    fn parse_string_with_missing_opening_bracket() {
+        // Simple
         let input_string = ">>>++++>>+<<-]>>.";
 
         let result = Command::parse_string(input_string).unwrap_err();
@@ -260,25 +261,28 @@ mod tests {
         assert_eq!(result, BrainfuckError::MissingBracketError(false));
 
 
+        // Complex/Nested
+        let input_string = ">>>++++[>>+<<-]>>[-]+[[-]]]";
+
+        let result = Command::parse_string(input_string).unwrap_err();
+
+        assert_eq!(result, BrainfuckError::MissingBracketError(false));
+    }
+
+    #[test]
+    fn parse_string_with_missing_closing_bracket() {
+        // Simple
         let input_string = ">>>++++[>>+<<->>.";
 
         let result = Command::parse_string(input_string).unwrap_err();
 
         assert_eq!(result, BrainfuckError::MissingBracketError(true));
 
-
-
+        // Complex/Nested
         let input_string = ">>>++++[>>+<<-]>>[-]+[[[-]]";
 
         let result = Command::parse_string(input_string).unwrap_err();
 
         assert_eq!(result, BrainfuckError::MissingBracketError(true));
-
-
-        let input_string = ">>>++++[>>+<<-]>>[-]+[[-]]]";
-
-        let result = Command::parse_string(input_string).unwrap_err();
-
-        assert_eq!(result, BrainfuckError::MissingBracketError(false));
     }
 }
